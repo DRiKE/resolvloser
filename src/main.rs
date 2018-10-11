@@ -4,8 +4,10 @@ use std::env::args;
 use std::process::exit;
 use std::path::Path;
 use std::cmp::Ordering;
-use std::io::{BufReader, BufRead, BufWriter, Write, Seek, SeekFrom};
+use std::io::{BufReader, BufRead, BufWriter, Write};
 use std::fs::OpenOptions;
+use std::io;
+
 
 const DEFAULT_RESOLVECONF_FN: &str = "/etc/resolv.conf";
 fn main() {
@@ -23,15 +25,20 @@ fn main() {
         exit(1);
     }
 
-    exit(parse_and_fix(&resolveconf_fn));
+    // TODO: replace unwrap()s with proper error handling
+    let new_content = parse_and_replace(&resolveconf_fn).unwrap();
+    // TODO: introduce a `-i` flag to do inplace replacement
+    // otherwise cat to stdout
+    write_file(&resolveconf_fn, new_content).unwrap();
+    exit(0);
 }
 
 
-fn parse_and_fix(resolveconf_fn: &str) -> i32 {
+fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
 
-    let mut fh = OpenOptions::new().read(true).write(true).open(resolveconf_fn).expect("cant open file in rw mode");
+    let fh = OpenOptions::new().read(true).open(resolveconf_fn).expect("cant open file in rw mode");
 
-    let mut raw_lines = BufReader::new(&fh).lines().map(|l| l.unwrap()).collect::<Vec<String>>(); //(&mut raw).expect("cant read file");
+    let mut raw_lines = BufReader::new(&fh).lines().map(|l| l.unwrap()).collect::<Vec<String>>();
 
     // we reuse the same lines so the structure of resolv.conf remains the same
     let mut lines_with_nameserver: Vec<usize> = Vec::new();
@@ -64,18 +71,21 @@ fn parse_and_fix(resolveconf_fn: &str) -> i32 {
         raw_lines[*line_no] = format!("nameserver {}", nameservers.clone().join(" "));
     }
 
-    // and write everything back into the file
-    fh.seek(SeekFrom::Start(0)).expect("something wrong while trying to write file");
+    Ok(raw_lines)
+}
+
+fn write_file(out_fn: &str, contents: Vec<String>) -> Result<(), io::Error> {
+    let fh = OpenOptions::new().write(true).open(out_fn).expect("cant open file in rw mode");
     let mut bufw = BufWriter::new(fh);
+    //TODO can we prevent this header from being repeated?
     writeln!(bufw, "# the nameservers in this file were (possibly) reordered using resolvesolver on {}", chrono::prelude::Local::now().to_rfc2822());
     writeln!(bufw, "#");
-    for line in raw_lines {
+    for line in contents {
         writeln!(bufw, "{}", line);
     }
     let _ = bufw.flush();
 
-
-    0
+    Ok(())
 }
 
 fn sort_v6_over_v4(a: &String, _b: &String) -> Ordering {
