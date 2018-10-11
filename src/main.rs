@@ -25,19 +25,23 @@ fn main() {
         exit(1);
     }
 
-    // TODO: replace unwrap()s with proper error handling
-    let new_content = parse_and_replace(&resolveconf_fn).unwrap();
+    // TODO: nested match is ugly.. any other way?
+    match parse_and_replace(&resolveconf_fn) {
+        Ok(new_content) => {
+            match write_file(&resolveconf_fn, new_content) {
+                Ok(()) => exit(0),
+                Err(e) => { eprintln!("Error: {}", e); exit(1); },
+            };
+        },
+        Err(e) => { eprintln!("Error: {}", e); exit(1); },
+    };
     // TODO: introduce a `-i` flag to do inplace replacement
     // otherwise cat to stdout
-    write_file(&resolveconf_fn, new_content).unwrap();
-    exit(0);
 }
 
 
 fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
-
-    let fh = OpenOptions::new().read(true).open(resolveconf_fn).expect("cant open file in rw mode");
-
+    let fh = OpenOptions::new().read(true).open(resolveconf_fn)?; 
     let mut raw_lines = BufReader::new(&fh).lines().map(|l| l.unwrap()).collect::<Vec<String>>();
 
     // we reuse the same lines so the structure of resolv.conf remains the same
@@ -57,11 +61,13 @@ fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
             lines_with_nameserver.push(line_no);
             let mut nameservers: Vec<String> = line.split_whitespace().map(|s| s.to_string()).collect::<Vec<String>>()[1..].to_vec();
             assert!(!nameservers.is_empty());
-            nameservers.sort_by(sort_v6_over_v4);
+            //nameservers.sort_by(|a, b| sort_v6_over_v4(&a.as_str(), &b.as_str()));
+            nameservers.sort_by(|a, _b| if a.contains(':') { Ordering::Less } else { Ordering::Greater });
             nested_nameservers.push(nameservers.to_vec());
         }
     }
-    nested_nameservers.sort_by(|a, b| sort_v6_over_v4(&a[0], &b[0]));
+    // TODO: also inline the sorting lambda here?
+    nested_nameservers.sort_by(|a, b| sort_v6_over_v4(&a[0].as_str(), &b[0].as_str()));
 
     // make sure we did not lose anything
     assert_eq!(lines_with_nameserver.len(), nested_nameservers.len());
@@ -75,7 +81,7 @@ fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
 }
 
 fn write_file(out_fn: &str, contents: Vec<String>) -> Result<(), io::Error> {
-    let fh = OpenOptions::new().write(true).open(out_fn).expect("cant open file in rw mode");
+    let fh = OpenOptions::new().write(true).open(out_fn)?;
     let mut bufw = BufWriter::new(fh);
     //TODO can we prevent this header from being repeated?
     writeln!(bufw, "# the nameservers in this file were (possibly) reordered using resolvesolver on {}", chrono::prelude::Local::now().to_rfc2822());
@@ -88,7 +94,8 @@ fn write_file(out_fn: &str, contents: Vec<String>) -> Result<(), io::Error> {
     Ok(())
 }
 
-fn sort_v6_over_v4(a: &String, _b: &String) -> Ordering {
+//fn sort_v6_over_v4(a: &String, _b: &String) -> Ordering {
+fn sort_v6_over_v4<'s, 't>(a: &'s &str, _b: &'t &str) -> Ordering {
     //naive first version to test
     if a.contains(':') {
         // v6
