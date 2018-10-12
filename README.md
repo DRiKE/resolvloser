@@ -1,4 +1,4 @@
-# resolvloser prioritizes IPv6 your /etc/resolv.conf
+# resolvloser prioritizes IPv6 in your /etc/resolv.conf
 
 **resolvloser** is a tool with only one goal: reordering the nameservers in
 `/etc/resolv.conf` so IPv6 nameservers are listed first. It does not touch any
