@@ -5,3 +5,4 @@ authors = ["Luuk Hendriks <mail@luukhendriks.eu>"]
 
 [dependencies]
 chrono = "0.4"
+getopts = "0.2"

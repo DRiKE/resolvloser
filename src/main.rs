@@ -1,6 +1,7 @@
 extern crate chrono;
+extern crate getopts;
 
-use std::env::args;
+use std::env;
 use std::process::exit;
 use std::path::Path;
 use std::cmp::Ordering;
@@ -8,16 +9,29 @@ use std::io::{BufReader, BufRead, BufWriter, Write};
 use std::fs::OpenOptions;
 use std::io;
 
+use getopts::Options;
+
 
 const DEFAULT_RESOLVECONF_FN: &str = "/etc/resolv.conf";
 fn main() {
-    eprintln!(env!("CARGO_PKG_VERSION"));
-    let args = args().collect::<Vec<String>>();
-    let resolveconf_fn = if args.len() != 2 {
+    eprintln!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    let args: Vec<String> = env::args().collect();
+    let mut opts = Options::new();
+    opts.optflag("i", "", "modify file in-place");
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("{}", e.to_string());
+            exit(1);
+        }
+    };
+
+
+    let resolveconf_fn = if matches.free.is_empty() {
         eprintln!("no filename passed, defaulting to {}", DEFAULT_RESOLVECONF_FN);
         DEFAULT_RESOLVECONF_FN.to_string()
     } else {
-        args[1].clone()
+        matches.free[0].clone()
     };
 
     if !Path::new(&resolveconf_fn).exists() {
@@ -25,18 +39,32 @@ fn main() {
         exit(1);
     }
 
-    // TODO: nested match is ugly.. any other way?
+    //if let Ok(new_content) = parse_and_replace(&resolveconf_fn) {
+    //    if matches.opt_present("i") {
+    //        eprintln!("altering file in-place");
+    //        write_file(&resolveconf_fn, new_content).map_err(|e| eprintln!("error: {}", e));
+    //    } else {
+    //        new_content.iter().for_each(|l| println!("{}", l));
+    //    }
+    //} 
+
     match parse_and_replace(&resolveconf_fn) {
         Ok(new_content) => {
-            match write_file(&resolveconf_fn, new_content) {
-                Ok(()) => exit(0),
-                Err(e) => { eprintln!("Error: {}", e); exit(1); },
-            };
+            if matches.opt_present("i") {
+                eprintln!("altering file in-place");
+                match write_file(&resolveconf_fn, new_content) {
+                    Ok(()) => exit(0),
+                    Err(e) => { eprintln!("Error: {}", e); exit(1); },
+                };
+            } else {
+                new_content.iter().for_each(|l| println!("{}", l));
+            }
         },
-        Err(e) => { eprintln!("Error: {}", e); exit(1); },
+        Err(e) => {
+            eprintln!("Parsing error: {}", e);
+            exit(1);
+        },
     };
-    // TODO: introduce a `-i` flag to do inplace replacement
-    // otherwise cat to stdout
 }
 
 
