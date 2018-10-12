@@ -1,5 +1,6 @@
 [Unit]
 Description=Watch for changes in /etc/resolv.conf
+
 [Path]
 PathChanged=/etc/resolv.conf
 
