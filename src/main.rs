@@ -12,7 +12,7 @@ use std::process::exit;
 use getopts::Options;
 
 const DEFAULT_RESOLVECONF_FN: &str = "/etc/resolv.conf";
-const HEADER: &str = "# the nameservers in this file were (possibly) reordered using resolvesolver on";
+const HEADER: &str = "# Nameservers (possibly) reordered by resolvloser on";
 
 fn main() {
     eprintln!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
