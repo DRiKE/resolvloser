@@ -46,6 +46,10 @@ The *path* unit monitors for changes in `/etc/resolv.conf`, and runs the
 # systemctl enable resolvloser.path
 ```
 
+On my system, I need the `StartLimit` configuration in the service file,
+because some actions (toggling the WiFi radio) cause many triggers (like 6 or
+so). Without these specific options, systemd rate limits the service. YMMV.
+
 ### Other ways
 
 Any other place where you can create some kind of hook, you should be able to
