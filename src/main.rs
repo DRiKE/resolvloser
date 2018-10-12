@@ -1,13 +1,13 @@
 extern crate chrono;
 extern crate getopts;
 
-use std::env;
-use std::process::exit;
-use std::path::Path;
 use std::cmp::Ordering;
-use std::io::{BufReader, BufRead, BufWriter, Write};
+use std::env;
 use std::fs::OpenOptions;
 use std::io;
+use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::path::Path;
+use std::process::exit;
 
 use getopts::Options;
 
@@ -26,7 +26,6 @@ fn main() {
             exit(1);
         }
     };
-
 
     let resolveconf_fn = if matches.free.is_empty() {
         eprintln!("no filename passed, defaulting to {}", DEFAULT_RESOLVECONF_FN);
@@ -47,7 +46,7 @@ fn main() {
     //    } else {
     //        new_content.iter().for_each(|l| println!("{}", l));
     //    }
-    //} 
+    //}
 
     match parse_and_replace(&resolveconf_fn) {
         Ok(new_content) => {
@@ -55,22 +54,24 @@ fn main() {
                 eprintln!("altering file in-place");
                 match write_file(&resolveconf_fn, new_content) {
                     Ok(()) => exit(0),
-                    Err(e) => { eprintln!("Error: {}", e); exit(1); },
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        exit(1);
+                    }
                 };
             } else {
                 new_content.iter().for_each(|l| println!("{}", l));
             }
-        },
+        }
         Err(e) => {
             eprintln!("Parsing error: {}", e);
             exit(1);
-        },
+        }
     };
 }
 
-
 fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
-    let fh = OpenOptions::new().read(true).open(resolveconf_fn)?; 
+    let fh = OpenOptions::new().read(true).open(resolveconf_fn)?;
     let mut raw_lines = BufReader::new(&fh).lines().map(|l| l.unwrap()).collect::<Vec<String>>();
 
     // we reuse the same lines so the structure of resolv.conf remains the same
@@ -82,16 +83,22 @@ fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
     let mut nested_nameservers: Vec<Vec<String>> = Vec::new();
 
     // find all nameserver lines in the original file, and their line numbers
-    for (line_no, line) in raw_lines.iter().enumerate(){
+    for (line_no, line) in raw_lines.iter().enumerate() {
         if line.starts_with('#') || line.is_empty() {
             continue;
         }
         if line.starts_with("nameserver") {
             lines_with_nameserver.push(line_no);
-            let mut nameservers: Vec<String> = line.split_whitespace().map(|s| s.to_string()).collect::<Vec<String>>()[1..].to_vec();
+            let mut nameservers: Vec<String> = line.split_whitespace().skip(1).map(|s| s.to_string()).collect();
             assert!(!nameservers.is_empty());
             //nameservers.sort_by(|a, b| sort_v6_over_v4(&a.as_str(), &b.as_str()));
-            nameservers.sort_by(|a, _b| if a.contains(':') { Ordering::Less } else { Ordering::Greater });
+            nameservers.sort_by(|a, _b| {
+                if a.contains(':') {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
+            });
             nested_nameservers.push(nameservers.to_vec());
         }
     }
@@ -101,7 +108,7 @@ fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
     // make sure we did not lose anything
     assert_eq!(lines_with_nameserver.len(), nested_nameservers.len());
 
-    // replace lines 
+    // replace lines
     for (line_no, nameservers) in lines_with_nameserver.iter().zip(nested_nameservers) {
         raw_lines[*line_no] = format!("nameserver {}", nameservers.clone().join(" "));
     }
