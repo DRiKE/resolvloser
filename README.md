@@ -9,7 +9,7 @@ something might have changed, and at which date/time.
 ## Build
 
 It's rust, so get your toolchain up and running with either
-(rustup)[https://rustup.rs/] or the package manager on your OS.
+[rustup](https://rustup.rs/) or the package manager on your OS.
 
 Then, git clone and build from the root of the repo:
 ```
