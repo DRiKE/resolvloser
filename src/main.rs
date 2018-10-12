@@ -11,8 +11,9 @@ use std::io;
 
 use getopts::Options;
 
-
 const DEFAULT_RESOLVECONF_FN: &str = "/etc/resolv.conf";
+const HEADER: &str = "# the nameservers in this file were (possibly) reordered using resolvesolver on ";
+
 fn main() {
     eprintln!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     let args: Vec<String> = env::args().collect();
@@ -105,15 +106,27 @@ fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
         raw_lines[*line_no] = format!("nameserver {}", nameservers.clone().join(" "));
     }
 
+    refresh_header(&mut raw_lines);
     Ok(raw_lines)
+}
+
+fn refresh_header(lines: &mut Vec<String>) {
+    if lines[0].contains(HEADER) {
+        eprintln!("replacing header");
+        lines[0] = gen_header();
+    } else {
+        lines.insert(0, gen_header());
+        lines.insert(1, "#".to_string());
+    }
+}
+
+fn gen_header() -> String {
+    format!("{} {}", HEADER, chrono::prelude::Local::now().to_rfc2822())
 }
 
 fn write_file(out_fn: &str, contents: Vec<String>) -> Result<(), io::Error> {
     let fh = OpenOptions::new().write(true).open(out_fn)?;
     let mut bufw = BufWriter::new(fh);
-    //TODO can we prevent this header from being repeated?
-    writeln!(bufw, "# the nameservers in this file were (possibly) reordered using resolvesolver on {}", chrono::prelude::Local::now().to_rfc2822());
-    writeln!(bufw, "#");
     for line in contents {
         writeln!(bufw, "{}", line);
     }
