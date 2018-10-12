@@ -6,6 +6,21 @@ other configuration. The lines with the nameserver options are reused, so the
 structure of the original file is preserved. A header is added so you know
 something might have changed, and at which date/time.
 
+## Build
+
+It's rust, so get your toolchain up and running with either
+(rustup)[https://rustup.rs/] or the package manager on your OS.
+
+Then, git clone and build from the root of the repo:
+```
+cargo build --release
+```
+
+Copy the binary to a place of your liking, for example
+```bash
+# cp ./target/release/resolvloser /usr/sbin/
+```
+
 ## Usage
 
 resolvloser takes a filename to use as input, or defaults to `/etc/resolv.conf`
