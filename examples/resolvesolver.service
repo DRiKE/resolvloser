@@ -1,0 +1,6 @@
+[Unit]
+Description=Reorder /etc/resolv.conf to prefer IPv6 nameservers
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '/usr/sbin/resolvloser'
