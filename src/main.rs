@@ -69,11 +69,7 @@ fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
 
     // we reuse the same lines so the structure of resolv.conf remains the same
     let mut lines_with_nameserver: Vec<usize> = Vec::new();
-
-    // a nameserver line can hold multiple nameservers
-    // so we order them within the lines itself, as well as ordering the lines
-    // therefore we use a nested vec
-    let mut nested_nameservers: Vec<Vec<String>> = Vec::new();
+    let mut nameservers: Vec<String> = Vec::new();
 
     // find all nameserver lines in the original file, and their line numbers
     for (line_no, line) in raw_lines.iter().enumerate() {
@@ -82,21 +78,20 @@ fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
         }
         if line.starts_with("nameserver") {
             lines_with_nameserver.push(line_no);
-            let mut nameservers: Vec<String> = line.split_whitespace().skip(1).map(|s| s.to_string()).collect();
-            assert!(!nameservers.is_empty());
-            nameservers.sort_by(|a, b| sort_v6_over_v4(&a.as_str(), &b.as_str()));
-            nested_nameservers.push(nameservers.to_vec());
+            if let Some(nameserver) = line.split_whitespace().nth(1) {
+                nameservers.push(nameserver.to_string());
+            }
         }
     }
-    // TODO: also inline the sorting lambda here?
-    nested_nameservers.sort_by(|a, b| sort_v6_over_v4(&a[0].as_str(), &b[0].as_str()));
+
+    nameservers.sort_by(|a, b| sort_v6_over_v4(&a.as_str(), &b.as_str()));
 
     // make sure we did not lose anything
-    assert_eq!(lines_with_nameserver.len(), nested_nameservers.len());
+    assert_eq!(lines_with_nameserver.len(), nameservers.len(), "lost a nameserver..");
 
     // replace lines
-    for (line_no, nameservers) in lines_with_nameserver.iter().zip(nested_nameservers) {
-        raw_lines[*line_no] = format!("nameserver {}", nameservers.clone().join(" "));
+    for (line_no, nameserver) in lines_with_nameserver.iter().zip(nameservers) {
+        raw_lines[*line_no] = format!("nameserver {}", nameserver);
     }
 
     refresh_header(&mut raw_lines);
