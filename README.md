@@ -6,6 +6,12 @@ other configuration. The lines with the nameserver options are reused, so the
 structure of the original file is preserved. A header is added so you know
 something might have changed, and at which date/time.
 
+
+## Pre-compiled binary
+
+If you don't want to build yourself, there is a (x64) binary available on the
+releases page. It might not be complete up to date with HEAD.
+
 ## Build
 
 It's rust, so get your toolchain up and running with either
