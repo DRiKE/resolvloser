@@ -23,14 +23,20 @@ fn main() {
         Ok(m) => m,
         Err(e) => {
             eprintln!("{}", e);
-            let brief = format!("Usage: {} RESOLVCONF_FILE [options]", env!("CARGO_PKG_NAME"));
+            let brief = format!(
+                "Usage: {} RESOLVCONF_FILE [options]",
+                env!("CARGO_PKG_NAME")
+            );
             print!("{}", opts.usage(&brief));
             exit(1);
         }
     };
 
     let resolveconf_fn = if matches.free.is_empty() {
-        eprintln!("no filename passed, defaulting to {}", DEFAULT_RESOLVECONF_FN);
+        eprintln!(
+            "no filename passed, defaulting to {}",
+            DEFAULT_RESOLVECONF_FN
+        );
         DEFAULT_RESOLVECONF_FN.to_string()
     } else {
         matches.free[0].clone()
@@ -41,26 +47,19 @@ fn main() {
         exit(1);
     }
 
-    match parse_and_replace(&resolveconf_fn) {
-        Ok(new_content) => {
-            if matches.opt_present("i") {
-                eprintln!("altering file in-place");
-                match write_file(&resolveconf_fn, new_content) {
-                    Ok(()) => exit(0),
-                    Err(e) => {
-                        eprintln!("Error: {}", e);
-                        exit(1);
-                    }
-                };
-            } else {
-                new_content.iter().for_each(|l| println!("{}", l));
-            }
-        }
-        Err(e) => {
-            eprintln!("Parsing error: {}", e);
-            exit(1);
-        }
-    };
+    let new_content = parse_and_replace(&resolveconf_fn).unwrap_or_else(|e| {
+        eprintln!("Parsing error: {}", e);
+        exit(1)
+    });
+
+    if matches.opt_present("i") {
+        write_file(&resolveconf_fn, new_content).unwrap_or_else(|e| {
+            eprintln!("Error writing file: {}", e);
+            exit(1)
+        })
+    } else {
+        new_content.iter().for_each(|l| println!("{}", l));
+    }
 }
 
 fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
@@ -74,12 +73,11 @@ fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
         .iter()
         .enumerate()
         .filter(|(_line_no, l)| l.starts_with("nameserver"))
-        .filter_map(|(line_no, l)| l.split_whitespace()
-                    .nth(1)
-                    .map(|ns| (line_no, ns.to_string()) )
-                    )
-        .unzip()
-    ; 
+        .filter_map(|(line_no, l)| {
+            l.split_whitespace()
+                .nth(1)
+                .map(|ns| (line_no, ns.to_string()))
+        }).unzip();
 
     nameservers.sort_by(|a, b| sort_v6_over_v4(a, b));
     //nameservers.sort_by(sort_v6_over_v4);
