@@ -22,7 +22,7 @@ fn main() {
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("{}", e.to_string());
+            eprintln!("{}", e);
             let brief = format!("Usage: {} RESOLVCONF_FILE [options]", env!("CARGO_PKG_NAME"));
             print!("{}", opts.usage(&brief));
             exit(1);
@@ -65,32 +65,30 @@ fn main() {
 
 fn parse_and_replace(resolveconf_fn: &str) -> Result<Vec<String>, io::Error> {
     let fh = OpenOptions::new().read(true).open(resolveconf_fn)?;
-    let mut raw_lines = BufReader::new(&fh).lines().map(|l| l.unwrap()).collect::<Vec<String>>();
+    let mut raw_lines = BufReader::new(&fh)
+        .lines()
+        .map(|l| l.unwrap())
+        .collect::<Vec<String>>();
 
-    // we reuse the same lines so the structure of resolv.conf remains the same
-    let mut lines_with_nameserver: Vec<usize> = Vec::new();
-    let mut nameservers: Vec<String> = Vec::new();
+    let (line_nos, mut nameservers): (Vec<usize>, Vec<String>) = raw_lines
+        .iter()
+        .enumerate()
+        .filter(|(_line_no, l)| l.starts_with("nameserver"))
+        .filter_map(|(line_no, l)| l.split_whitespace()
+                    .nth(1)
+                    .map(|ns| (line_no, ns.to_string()) )
+                    )
+        .unzip()
+    ; 
 
-    // find all nameserver lines in the original file, and their line numbers
-    for (line_no, line) in raw_lines.iter().enumerate() {
-        if line.starts_with('#') || line.is_empty() {
-            continue;
-        }
-        if line.starts_with("nameserver") {
-            lines_with_nameserver.push(line_no);
-            if let Some(nameserver) = line.split_whitespace().nth(1) {
-                nameservers.push(nameserver.to_string());
-            }
-        }
-    }
-
-    nameservers.sort_by(|a, b| sort_v6_over_v4(&a.as_str(), &b.as_str()));
+    nameservers.sort_by(|a, b| sort_v6_over_v4(a, b));
+    //nameservers.sort_by(sort_v6_over_v4);
 
     // make sure we did not lose anything
-    assert_eq!(lines_with_nameserver.len(), nameservers.len(), "lost a nameserver..");
+    assert_eq!(line_nos.len(), nameservers.len(), "lost a nameserver..");
 
     // replace lines
-    for (line_no, nameserver) in lines_with_nameserver.iter().zip(nameservers) {
+    for (line_no, nameserver) in line_nos.iter().zip(nameservers) {
         raw_lines[*line_no] = format!("nameserver {}", nameserver);
     }
 
@@ -122,7 +120,8 @@ fn write_file(out_fn: &str, contents: Vec<String>) -> Result<(), io::Error> {
     Ok(())
 }
 
-fn sort_v6_over_v4<'s, 't>(a: &'s &str, _b: &'t &str) -> Ordering {
+//fn sort_v6_over_v4<'s, 't>(a: &'s &str, _b: &'t &str) -> Ordering {
+fn sort_v6_over_v4(a: &str, _b: &str) -> Ordering {
     // naive sorting
     // perhaps prioritizing global over link-local (or the other way around) makes sense
     if a.contains(':') {
