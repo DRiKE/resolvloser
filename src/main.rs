@@ -48,7 +48,7 @@ fn main() {
     }
 
     let new_content = parse_and_replace(&resolveconf_fn).unwrap_or_else(|e| {
-        eprintln!("Parsing error: {}", e);
+        eprintln!("Error while reading/parsing: {}", e);
         exit(1)
     });
 
