@@ -5,4 +5,4 @@ Description=Watch for changes in /etc/resolv.conf
 PathChanged=/etc/resolv.conf
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=network-online.target
